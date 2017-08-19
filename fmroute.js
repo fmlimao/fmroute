@@ -2,15 +2,13 @@ var FMRoute = (function () {
     function FMRoute() {
         this.routes = [];
         this.previous_route = null;
-        this.current_route = '#/c/d/e';
+        this.current_route = '#/c/aaa/e';
     }
 
     FMRoute.prototype = {
         get: function (path, callback_enter, callback_exit) {
-            console.dir('get(' + path + ')');
-
             callback_enter = callback_enter || function () { };
-            callback_exit = callback_enter || function () { };
+            callback_exit = callback_exit || function () { };
 
             path = this.clearPath(path);
             path_elements = this.splitPath(path);
@@ -26,41 +24,34 @@ var FMRoute = (function () {
             this.routes.push(route);
         },
         run: function () {
-            console.dir('run()');
-
             this.startHashListener();
             this.getCurrentHash();
         },
 
         startHashListener: function () {
-            console.dir('startHashListener()');
-
             var _ = this;
             window.addEventListener('hashchange', function () {
                 _.getCurrentHash();
             }, false);
         },
         getCurrentHash: function () {
-            console.dir('getCurrentHash()');
-
             var current_hash = window.location.hash;
-            // current_hash = this.clearPath(current_hash);
-            // current_hash = this.splitPath(current_hash);
 
             this.changePreviousCurrentRoute(current_hash);
-            // this.exitPreviousRoute();
 
             var exit_callback = this.getExitCallback();
             var enter_callback = this.getEnterCallback();
 
-            console.dir(exit_callback);
-            console.dir(enter_callback);
+            // console.dir(exit_callback);
+            // console.dir(enter_callback);
 
-            // var path_exists = this.checkPathExists(current_hash);
+            exit_callback[0](exit_callback[1], function () {
+                // console.dir('NEXT 1');
 
-            // console.dir('current_hash: ' + JSON.stringify(current_hash));
-            // console.dir('path_exists: ');
-            // console.dir(path_exists);
+                enter_callback[0](enter_callback[1], function () {
+                    // console.dir('NEXT 2');
+                });
+            });
         },
         clearPath: function (path) {
             path = path.trim();
@@ -82,64 +73,56 @@ var FMRoute = (function () {
             return path;
         },
         changePreviousCurrentRoute: function (current_path) {
-            console.dir('changePreviousCurrentRoute(' + current_path + ')');
-
             this.previous_route = this.current_route;
             this.current_route = current_path;
-            // console.dir('previous_route: ' + this.previous_route);
-            // console.dir('current_route: ' + this.current_route);
         },
         getExitCallback: function () {
-            console.dir('getExitCallback()');
+            var callback = function (vars, next) {
+                console.dir('EXIT DEFAULT');
+                next();
+            };
+
+            var vars = {};
 
             if (this.previous_route) {
-                console.dir(this.previous_route);
                 var path_exists = this.checkPathExists(this.previous_route);
-                console.dir(path_exists);
 
-            //     if (path_exists) {
-            //         console.dir(' -- TEM ROTA ANTERIOR -- ');
-            //         console.dir('path_exists: ');
-            //         console.dir(path_exists);
-
-            //         path_exists[0].callback_exit();
-            //     } else {
-            //         console.dir(' -- NAO TEM ROTA ANTERIOR -- ');
-            //     }
+                if (path_exists) {
+                    callback = path_exists[0].callback_exit;
+                    vars = path_exists[1];
+                }
             }
 
-            return 'A';
+            return [
+                callback,
+                vars,
+            ];
         },
         getEnterCallback: function () {
-            console.dir('getExitCallback()');
+            var callback = function (vars, next) {
+                console.dir('ENTER DEFAULT');
+                next();
+            };
 
-            return 'B';
+            var vars = {};
+
+            if (this.current_route) {
+                var path_exists = this.checkPathExists(this.current_route);
+
+                if (path_exists) {
+                    callback = path_exists[0].callback_enter;
+                    vars = path_exists[1];
+                }
+            }
+
+            return [
+                callback,
+                vars,
+            ];
         },
-        // exitPreviousRoute: function () {
-        //     // console.clear();
-        //     console.dir('exitPreviousRoute()');
-
-        //     if (this.previous_route) {
-        //         console.dir(this.previous_route);
-        //         var path_exists = this.checkPathExists(this.previous_route);
-
-        //         if (path_exists) {
-        //             console.dir(' -- TEM ROTA ANTERIOR -- ');
-        //             console.dir('path_exists: ');
-        //             console.dir(path_exists);
-
-        //             path_exists[0].callback_exit();
-        //         } else {
-        //             console.dir(' -- NAO TEM ROTA ANTERIOR -- ');
-        //         }
-        //     }
-        // },
         checkPathExists: function (current_hash) {
-            console.dir('checkPathExists(' + current_hash + ')');
-
             var path = this.clearPath(current_hash);
             path = this.splitPath(path);
-            console.dir('path: ' + JSON.stringify(path));
 
             var exists = null;
             var routes = this.routes;
@@ -162,7 +145,6 @@ var FMRoute = (function () {
 
                     if (equal) {
                         exists = [route, vars];
-                        console.dir('route.path_elements: ' + JSON.stringify(route.path_elements) + ' : ' + equal + ' : ' + JSON.stringify(vars));
                         break;
                     }
                 }

@@ -15,32 +15,47 @@
     <script>
         var route = new FMRoute();
 
-        route.get('/', function () {
-            console.dir('enter route /');
-        }, function () {
-            console.dir('exit route /');
+        route.get('/', function (vars, next) {
+            console.dir('enter route / : ' + JSON.stringify(vars));
+            next();
+        }, function (vars, next) {
+            console.dir('exit route / : ' + JSON.stringify(vars));
+            next();
         });
 
-        route.get('/c/:id/e/', function () {
-            console.dir('enter route /c/:id/e/');
-        }, function () {
-            console.dir('exit route /c/:id/e/');
+        route.get('/c', function (vars, next) {
+            console.dir('enter route /c : ' + JSON.stringify(vars));
+            next();
+        }, function (vars, next) {
+            console.dir('exit route /c : ' + JSON.stringify(vars));
+            next();
         });
 
-        route.get('/a/:id/e', function () {
-            console.dir('enter route /a/:id/e');
-        }, function () {
-            console.dir('exit route /a/:id/e');
+        route.get('/c/:id/e/', function (vars, next) {
+            console.dir('enter route /c/:id/e/ : ' + JSON.stringify(vars));
+            next();
+        }, function (vars, next) {
+            console.dir('exit route /c/:id/e/ : ' + JSON.stringify(vars));
+            next();
         });
 
-        console.dir('--------------');
+        route.get('/a/:id/e', function (vars, next) {
+            console.dir('enter route /a/:id/e : ' + JSON.stringify(vars));
+            next();
+        }, function (vars, next) {
+            console.dir('exit route /a/:id/e : ' + JSON.stringify(vars));
+            next();
+        });
 
-        console.dir('routes: ');
-        for (var i in route.routes) {
-            var r = route.routes[i];
-            console.dir(JSON.stringify(r.path_elements));
-        }
-        console.dir('--------------');
+        // console.dir('--------------');
+
+        // console.dir('routes: ');
+        // for (var i in route.routes) {
+        //     var r = route.routes[i];
+        //     console.dir(JSON.stringify(r.path_elements));
+        // }
+
+        // console.dir('--------------');
 
         route.run();
     </script>
