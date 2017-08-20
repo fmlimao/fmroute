@@ -2,7 +2,13 @@ var FMRoute = (function () {
     function FMRoute() {
         this.routes = [];
         this.previous_route = null;
-        this.current_route = '#/c/aaa/e';
+        this.current_route = null;
+        this.default_callback = {
+            '404': function (vars, next, route) {
+                console.dir(route + ': 404 NOT FOUND');
+                next();
+            },
+        };
     }
 
     FMRoute.prototype = {
@@ -27,7 +33,6 @@ var FMRoute = (function () {
             this.startHashListener();
             this.getCurrentHash();
         },
-
         startHashListener: function () {
             var _ = this;
             window.addEventListener('hashchange', function () {
@@ -36,21 +41,20 @@ var FMRoute = (function () {
         },
         getCurrentHash: function () {
             var current_hash = window.location.hash;
-
-            this.changePreviousCurrentRoute(current_hash);
-
+            if (current_hash == '') {
+                window.location.hash = '/';
+            } else {
+                this.changePreviousCurrentRoute(current_hash);
+                this.executeRoutes();
+            }
+        },
+        executeRoutes: function () {
+            var _ = this;
             var exit_callback = this.getExitCallback();
             var enter_callback = this.getEnterCallback();
 
-            // console.dir(exit_callback);
-            // console.dir(enter_callback);
-
             exit_callback[0](exit_callback[1], function () {
-                // console.dir('NEXT 1');
-
-                enter_callback[0](enter_callback[1], function () {
-                    // console.dir('NEXT 2');
-                });
+                enter_callback[0](enter_callback[1], function () { }, _.current_route);
             });
         },
         clearPath: function (path) {
@@ -78,7 +82,6 @@ var FMRoute = (function () {
         },
         getExitCallback: function () {
             var callback = function (vars, next) {
-                console.dir('EXIT DEFAULT');
                 next();
             };
 
@@ -99,11 +102,8 @@ var FMRoute = (function () {
             ];
         },
         getEnterCallback: function () {
-            var callback = function (vars, next) {
-                console.dir('ENTER DEFAULT');
-                next();
-            };
-
+            var _ = this;
+            var callback = this.default_callback['404'];
             var vars = {};
 
             if (this.current_route) {
@@ -156,7 +156,10 @@ var FMRoute = (function () {
                 return item.substring(1);
             }
             return false;
-        }
+        },
+        error: function (code, callback) {
+            this.default_callback[code] = callback;
+        },
     };
 
     return FMRoute;
