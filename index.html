@@ -6,62 +6,90 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>FM Route</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u"
+        crossorigin="anonymous">
 </head>
 
 <body>
-    opa!
 
-    <script src="fmroute.js"></script>
+    <div class="container" id="AppVue">
+        <h1 class="page-header">FM Route</h1>
+
+        <div class="well well-sm">
+            <ul class="nav nav-pills">
+                <li :class="{'active': current_page === 'homepage'}"><a href="#/">Página Inicial</a></li>
+                <li :class="{'active': current_page === 'page1'}"><a href="#/page-1">Página 1</a></li>
+                <li><a href="#/pagina-falsa-1">Página falsa 1</a></li>
+                <li :class="{'active': current_page === 'page2'}"><a href="#/page-2/id-de-teste">Página 2 com parâmetro</a></li>
+                <li><a href="#/pagina-falsa-2">Página falsa 2</a></li>
+            </ul>
+        </div>
+
+        <div>
+            <div v-if="current_page === 'homepage'">
+                <h2 class="page-header">Página Inicial</h2>
+            </div>
+
+            <div v-if="current_page === 'page1'">
+                <h2 class="page-header">Página 1</h2>
+            </div>
+
+            <div v-if="current_page === 'page2'">
+                <h2 class="page-header">Página 2</h2>
+                <h3 class="page-header">Variáveis:</h3>
+                <pre>{{ vars }}</pre>
+            </div>
+
+            <div v-if="current_page === 'error404'">
+                <h2 class="page-header">Página não encontrada</h2>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.4.2/vue.min.js"></script>
+    <script src="./fmroute.js"></script>
     <script>
         var route = new FMRoute();
 
         route.get('/', function (vars, next) {
-            console.dir('enter route / : ' + JSON.stringify(vars));
-            next();
-        }, function (vars, next) {
-            console.dir('exit route / : ' + JSON.stringify(vars));
+            App.current_page = 'homepage';
+            App.vars = vars;
             next();
         });
 
-        route.get('/c', function (vars, next) {
-            console.dir('enter route /c : ' + JSON.stringify(vars));
-            next();
-        }, function (vars, next) {
-            console.dir('exit route /c : ' + JSON.stringify(vars));
+        route.get('/page-1', function (vars, next) {
+            App.current_page = 'page1';
+            App.vars = vars;
             next();
         });
 
-        route.get('/c/:id/e/', function (vars, next) {
-            console.dir('enter route /c/:id/e/ : ' + JSON.stringify(vars));
-            next();
-        }, function (vars, next) {
-            console.dir('exit route /c/:id/e/ : ' + JSON.stringify(vars));
+        route.get('/page-2/:id', function (vars, next) {
+            App.current_page = 'page2';
+            App.vars = vars;
             next();
         });
 
-        route.get('/a/:id/e', function (vars, next) {
-            console.dir('enter route /a/:id/e : ' + JSON.stringify(vars));
-            next();
-        }, function (vars, next) {
-            console.dir('exit route /a/:id/e : ' + JSON.stringify(vars));
+        route.error('404', function (vars, next) {
+            App.current_page = 'error404';
+            App.vars = vars;
             next();
         });
 
-        // console.dir('--------------');
+        var App = new Vue({
+            el: '#AppVue',
+            data: {
+                current_page: 'teste',
+                vars: {},
+            },
+            methods: {
+                init: function () {
+                    console.dir(route);
+                    route.run();
+                },
+            },
+        });
 
-        // console.dir('routes: ');
-        // for (var i in route.routes) {
-        //     var r = route.routes[i];
-        //     console.dir(JSON.stringify(r.path_elements));
-        // }
-
-        // console.dir('--------------');
-
-        // route.error('404', function (vars, next, route) {
-        //     console.dir('[' + route + '] : ops!');
-        // });
-
-        route.run();
+        App.init();
     </script>
 </body>
 

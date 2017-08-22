@@ -13,8 +13,12 @@ var FMRoute = (function () {
 
     FMRoute.prototype = {
         get: function (path, callback_enter, callback_exit) {
-            callback_enter = callback_enter || function () { };
-            callback_exit = callback_exit || function () { };
+            callback_enter = callback_enter || function (vars, next) {
+                next();
+            };
+            callback_exit = callback_exit || function (vars, next) {
+                next();
+            };
 
             path = this.clearPath(path);
             path_elements = this.splitPath(path);
@@ -54,7 +58,8 @@ var FMRoute = (function () {
             var enter_callback = this.getEnterCallback();
 
             exit_callback[0](exit_callback[1], function () {
-                enter_callback[0](enter_callback[1], function () { }, _.current_route);
+                enter_callback[0](enter_callback[1], function () {
+                }, _.current_route);
             });
         },
         clearPath: function (path) {
