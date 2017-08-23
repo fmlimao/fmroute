@@ -8,6 +8,10 @@ var FMRoute = (function () {
                 console.dir(route + ': 404 NOT FOUND');
                 next();
             },
+            'before': function (vars, next, route) {
+                next();
+            },
+            'after': function (vars, route) {},
         };
     }
 
@@ -54,13 +58,18 @@ var FMRoute = (function () {
         },
         executeRoutes: function () {
             var _ = this;
+            var before_callback = this.default_callback['before'];
+            var after_callback = this.default_callback['after'];
             var exit_callback = this.getExitCallback();
             var enter_callback = this.getEnterCallback();
 
-            exit_callback[0](exit_callback[1], function () {
-                enter_callback[0](enter_callback[1], function () {
-                }, _.current_route);
-            });
+            before_callback(enter_callback[1], function () {
+                exit_callback[0](exit_callback[1], function () {
+                    enter_callback[0](enter_callback[1], function () {
+                        after_callback(enter_callback[1], _.current_route);
+                    }, _.current_route);
+                });
+            }, _.current_route);
         },
         clearPath: function (path) {
             path = path.trim();
@@ -164,6 +173,12 @@ var FMRoute = (function () {
         },
         error: function (code, callback) {
             this.default_callback[code] = callback;
+        },
+        before: function (callback) {
+            this.default_callback['before'] = callback;
+        },
+        after: function (callback) {
+            this.default_callback['after'] = callback;
         },
     };
 

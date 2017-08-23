@@ -8,42 +8,179 @@
     <title>FM Route</title>
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u"
         crossorigin="anonymous">
+    <style>
+        h2.page-header {
+            margin-top: 0;
+        }
+    </style>
 </head>
 
 <body>
 
     <div class="container" id="AppVue">
-        <h1 class="page-header">FM Route</h1>
+        <h1 class="page-header">
+            FM Route<br>
+            <small>Contador de acessos: <b>{{ access_count }}</b></small>
+        </h1>
 
-        <div class="well well-sm">
-            <ul class="nav nav-pills">
-                <li :class="{'active': current_page === 'homepage'}"><a href="#/">Página Inicial</a></li>
-                <li :class="{'active': current_page === 'page1'}"><a href="#/page-1">Página 1</a></li>
-                <li><a href="#/pagina-falsa-1">Página falsa 1</a></li>
-                <li :class="{'active': current_page === 'page2'}"><a href="#/page-2/id-de-teste">Página 2 com parâmetro</a></li>
-                <li><a href="#/pagina-falsa-2">Página falsa 2</a></li>
-            </ul>
+        <div class="row">
+            <div class="col-xs-12 col-sm-4 col-md-3">
+                <div class="panel panel-default">
+                    <div class="panel-heading">Menu</div>
+                    <div class="list-group">
+                        <a href="#/" class="list-group-item" :class="{'active': current_page === 'homepage'}">Página Inicial</a>
+                        <a href="#/page-1" class="list-group-item" :class="{'active': current_page === 'page1'}">Página 1</a>
+                        <a href="#/page-2/id-de-teste" class="list-group-item" :class="{'active': current_page === 'page2'}">Página 2 com parâmetro</a>
+                        <a href="#/pagina-falsa" class="list-group-item"><span class="text-danger">Página Falsa</span></a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xs-12 col-sm-8 col-md-9">
+
+                <div v-if="current_page === 'homepage'">
+                    <h2 class="page-header">Página Inicial</h2>
+
+                    <div class="panel panel-default">
+                        <div class="panel-heading">Variáveis</div>
+                        <div class="panel-body">
+                            <pre>{{ vars }}</pre>
+                        </div>
+                    </div>
+
+                    <div class="panel panel-default">
+                        <div class="panel-heading">Código</div>
+                        <div class="panel-body">
+                            <pre>var route = new FMRoute();
+
+route.before(function (vars, next, route) {
+    App.access_count++;
+    next();
+});
+
+route.get('/', function (vars, next) {
+    App.current_page = 'homepage';
+    App.vars = vars;
+    next();
+});
+
+route.after(function (vars, route) {
+    console.dir('Rota executada: ' + route);
+});
+
+route.run();</pre>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-if="current_page === 'page1'">
+                    <h2 class="page-header">Página 1</h2>
+
+                    <div class="panel panel-default">
+                        <div class="panel-heading">Variáveis</div>
+                        <div class="panel-body">
+                            <pre>{{ vars }}</pre>
+                        </div>
+                    </div>
+
+                    <div class="panel panel-default">
+                        <div class="panel-heading">Código</div>
+                        <div class="panel-body">
+                            <pre>var route = new FMRoute();
+
+route.before(function (vars, next, route) {
+    App.access_count++;
+    next();
+});
+
+route.get('/page-1', function (vars, next) {
+    App.current_page = 'page1';
+    App.vars = vars;
+    next();
+});
+
+route.after(function (vars, route) {
+    console.dir('Rota executada: ' + route);
+});
+
+route.run();</pre>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-if="current_page === 'page2'">
+                    <h2 class="page-header">Página 2</h2>
+
+                    <div class="panel panel-default">
+                        <div class="panel-heading">Variáveis</div>
+                        <div class="panel-body">
+                            <pre>{{ vars }}</pre>
+                        </div>
+                    </div>
+
+                    <div class="panel panel-default">
+                        <div class="panel-heading">Código</div>
+                        <div class="panel-body">
+                            <pre>var route = new FMRoute();
+
+route.before(function (vars, next, route) {
+    App.access_count++;
+    next();
+});
+
+route.get('/page-2/:id', function (vars, next) {
+    App.current_page = 'page2';
+    App.vars = vars;
+    next();
+});
+
+route.after(function (vars, route) {
+    console.dir('Rota executada: ' + route);
+});
+
+route.run();</pre>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-if="current_page === 'error404'">
+                    <h2 class="page-header">Página não encontrada</h2>
+
+                    <div class="panel panel-default">
+                        <div class="panel-heading">Variáveis</div>
+                        <div class="panel-body">
+                            <pre>{{ vars }}</pre>
+                        </div>
+                    </div>
+
+                    <div class="panel panel-default">
+                        <div class="panel-heading">Código</div>
+                        <div class="panel-body">
+                            <pre>var route = new FMRoute();
+
+route.before(function (vars, next, route) {
+    App.access_count++;
+    next();
+});
+
+route.error('404', function (vars, next) {
+    App.current_page = 'error404';
+    App.vars = vars;
+    next();
+});
+
+route.after(function (vars, route) {
+    console.dir('Rota executada: ' + route);
+});
+
+route.run();</pre>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
         </div>
 
-        <div>
-            <div v-if="current_page === 'homepage'">
-                <h2 class="page-header">Página Inicial</h2>
-            </div>
-
-            <div v-if="current_page === 'page1'">
-                <h2 class="page-header">Página 1</h2>
-            </div>
-
-            <div v-if="current_page === 'page2'">
-                <h2 class="page-header">Página 2</h2>
-                <h3 class="page-header">Variáveis:</h3>
-                <pre>{{ vars }}</pre>
-            </div>
-
-            <div v-if="current_page === 'error404'">
-                <h2 class="page-header">Página não encontrada</h2>
-            </div>
-        </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.4.2/vue.min.js"></script>
@@ -75,15 +212,24 @@
             next();
         });
 
+        route.before(function (vars, next, route) {
+            App.access_count++;
+            next();
+        });
+
+        route.after(function (vars, route) {
+            console.dir('Rota executada: ' + route);
+        });
+
         var App = new Vue({
             el: '#AppVue',
             data: {
+                access_count: 0,
                 current_page: 'teste',
                 vars: {},
             },
             methods: {
                 init: function () {
-                    console.dir(route);
                     route.run();
                 },
             },
