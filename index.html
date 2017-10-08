@@ -203,6 +203,7 @@ route.run();</pre>
         route.get('/page-2/:id', function (vars, next) {
             App.current_page = 'page2';
             App.vars = vars;
+            route.stop();
             next();
         });
 

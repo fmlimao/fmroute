@@ -11,8 +11,9 @@ var FMRoute = (function () {
             'before': function (vars, next, route) {
                 next();
             },
-            'after': function (vars, route) {},
+            'after': function (vars, route) { },
         };
+        this.block = false;
     }
 
     FMRoute.prototype = {
@@ -41,6 +42,12 @@ var FMRoute = (function () {
             this.startHashListener();
             this.getCurrentHash();
         },
+        stop: function () {
+            this.block = true;
+        },
+        start: function () {
+            this.block = false;
+        },
         startHashListener: function () {
             var _ = this;
             window.addEventListener('hashchange', function () {
@@ -48,12 +55,14 @@ var FMRoute = (function () {
             }, false);
         },
         getCurrentHash: function () {
-            var current_hash = window.location.hash;
-            if (current_hash == '') {
-                window.location.hash = '/';
-            } else {
-                this.changePreviousCurrentRoute(current_hash);
-                this.executeRoutes();
+            if (!this.block) {
+                var current_hash = window.location.hash;
+                if (current_hash == '') {
+                    window.location.hash = '/';
+                } else {
+                    this.changePreviousCurrentRoute(current_hash);
+                    this.executeRoutes();
+                }
             }
         },
         executeRoutes: function () {
