@@ -83,7 +83,7 @@ var FMRoute = (function () {
         clearPath: function (path) {
             path = path.trim();
             path = path.replace('#', '');
-            path = path.toLowerCase();
+            // path = path.toLowerCase();
 
             if (path.substring(0, 1) == '/') {
                 path = path.substring(1);
