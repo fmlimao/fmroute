@@ -189,6 +189,9 @@ var FMRoute = (function () {
         after: function (callback) {
             this.default_callback['after'] = callback;
         },
+        go: function (route) {
+            window.location.hash = route;
+        },
     };
 
     return FMRoute;

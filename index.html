@@ -32,6 +32,7 @@
                         <a href="#/page-1" class="list-group-item" :class="{'active': current_page === 'page1'}">Página 1</a>
                         <a href="#/page-2/id-de-teste" class="list-group-item" :class="{'active': current_page === 'page2'}">Página 2 com parâmetro</a>
                         <a href="#/pagina-falsa" class="list-group-item"><span class="text-danger">Página Falsa</span></a>
+                        <a href="#/redirect" class="list-group-item" :class="{'active': current_page === 'redirect'}">Redirect</a>
                     </div>
                 </div>
             </div>
@@ -143,6 +144,46 @@ route.run();</pre>
                     </div>
                 </div>
 
+                <div v-if="current_page === 'redirect'">
+                    <h2 class="page-header">Reditect</h2>
+
+                    <div class="panel panel-default">
+                        <div class="panel-heading">Variáveis</div>
+                        <div class="panel-body">
+                            <pre>{{ vars }}</pre>
+                        </div>
+                    </div>
+
+                    <div class="panel panel-default">
+                        <div class="panel-heading">Código</div>
+                        <div class="panel-body">
+                            <pre>var route = new FMRoute();
+
+route.before(function (vars, next, route) {
+    App.access_count++;
+    next();
+});
+
+route.get('/reditect', function (vars, next) {
+    App.current_page = 'reditect';
+    App.vars = vars;
+
+    setTimeout(function () {
+        route.go('/page-1');
+    }, 2000);
+
+    next();
+});
+
+route.after(function (vars, route) {
+    console.dir('Rota executada: ' + route);
+});
+
+route.run();</pre>
+                        </div>
+                    </div>
+                </div>
+
                 <div v-if="current_page === 'error404'">
                     <h2 class="page-header">Página não encontrada</h2>
 
@@ -203,6 +244,17 @@ route.run();</pre>
         route.get('/page-2/:id', function (vars, next) {
             App.current_page = 'page2';
             App.vars = vars;
+            next();
+        });
+
+        route.get('/redirect', function (vars, next) {
+            App.current_page = 'redirect';
+            App.vars = vars;
+
+            setTimeout(function () {
+                route.go('/page-1');
+            }, 2000);
+
             next();
         });
 
