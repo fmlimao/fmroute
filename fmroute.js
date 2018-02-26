@@ -39,6 +39,7 @@ var FMRoute = (function () {
             this.routes.push(route);
         },
         run: function () {
+            this.clearPathname();
             this.startHashListener();
             this.getCurrentHash();
         },
@@ -47,6 +48,16 @@ var FMRoute = (function () {
         },
         start: function () {
             this.block = false;
+        },
+        clearPathname: function () {
+            var pathname = '/' + window.location.pathname
+                .split('/')
+                .reduce(function (a, c) {
+                    if (c.trim() != '') a.push(c.trim());
+                    return a;
+                }, [])
+                .join('/') + '/';
+            if (window.location.pathname != pathname) window.history.pushState('/', document.title, pathname);
         },
         startHashListener: function () {
             var _ = this;
