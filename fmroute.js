@@ -21,13 +21,54 @@
 })(typeof self !== 'undefined' ? self : this, function () {
     'use strict';
 
-    // Callback de passagem padrão: apenas segue o fluxo.
+    /**
+     * Callback executado ao entrar/sair de uma rota, ou nos hooks before/404.
+     * Deve chamar `next()` para a cadeia (before -> exit -> enter -> after) seguir.
+     * @callback RouteCallback
+     * @param {Object<string, string>} vars - Parâmetros nomeados extraídos da rota
+     *   (ex.: a rota '/post/:id' acessada como '/post/42' fornece `{ id: '42' }`).
+     * @param {function} next - Avança para a próxima etapa do fluxo.
+     * @param {?string} route - Caminho da rota envolvida.
+     */
+
+    /**
+     * Hook executado ao final do fluxo, depois da rota de entrada. Não recebe
+     * `next()` por ser o último passo.
+     * @callback AfterCallback
+     * @param {Object<string, string>} vars - Parâmetros da rota atual.
+     * @param {?string} route - Caminho da rota atual.
+     */
+
+    /**
+     * Callback de passagem padrão: apenas segue o fluxo chamando next().
+     * Usado quando uma rota não define callback de entrada/saída.
+     * @type {RouteCallback}
+     */
     function passthrough(vars, next) {
         next();
     }
 
+    /**
+     * Roteador front-end sem dependências.
+     *
+     * @example
+     * const route = new FMRoute();          // modo 'hash' (padrão)
+     * route
+     *     .get('/', (vars, next) => next())
+     *     .get('/post/:id', (vars, next) => { console.log(vars.id); next(); })
+     *     .error('404', (vars, next) => next())
+     *     .run();
+     */
     class FMRoute {
 
+        /**
+         * @param {object} [options] - Opções de configuração.
+         * @param {'hash'|'history'} [options.mode='hash'] - Estratégia de navegação.
+         *   'hash' usa o fragmento da URL (#/rota); 'history' usa a History API
+         *   (URLs limpas, /rota — exige fallback de SPA no servidor).
+         * @param {string} [options.base=''] - Prefixo de caminho quando o app vive
+         *   numa subpasta (ex.: '/app'). Relevante apenas no modo 'history'.
+         */
         constructor(options = {}) {
             this.mode = options.mode === 'history' ? 'history' : 'hash';
 
@@ -60,6 +101,15 @@
 
         // ---- API pública --------------------------------------------------
 
+        /**
+         * Registra uma rota e seus callbacks.
+         * @param {string} path - Caminho da rota. Aceita parâmetros nomeados
+         *   com `:` (ex.: '/post/:id'), que viram propriedades de `vars`.
+         * @param {RouteCallback} [callbackEnter] - Executado ao entrar na rota.
+         * @param {RouteCallback} [callbackExit] - Executado ao sair da rota
+         *   (ao navegar dela para outra). Opcional.
+         * @returns {FMRoute} A própria instância, para encadeamento.
+         */
         get(path, callbackEnter, callbackExit) {
             const { path: normalizedPath, segments } = this._normalize(path);
 
@@ -73,21 +123,44 @@
             return this;
         }
 
+        /**
+         * Define o callback de um código de erro. Hoje o roteador dispara '404'
+         * quando nenhuma rota casa com o caminho atual.
+         * @param {string} code - Código do erro (ex.: '404').
+         * @param {RouteCallback} callback - Executado quando o erro ocorre.
+         * @returns {FMRoute} A própria instância, para encadeamento.
+         */
         error(code, callback) {
             this.defaultCallbacks[code] = callback;
             return this;
         }
 
+        /**
+         * Define o hook executado ANTES de cada rota (em toda navegação).
+         * @param {RouteCallback} callback - Executado no início do fluxo.
+         * @returns {FMRoute} A própria instância, para encadeamento.
+         */
         before(callback) {
             this.defaultCallbacks['before'] = callback;
             return this;
         }
 
+        /**
+         * Define o hook executado DEPOIS de cada rota (ao final do fluxo).
+         * @param {AfterCallback} callback - Executado no fim do fluxo (sem `next`).
+         * @returns {FMRoute} A própria instância, para encadeamento.
+         */
         after(callback) {
             this.defaultCallbacks['after'] = callback;
             return this;
         }
 
+        /**
+         * Inicia o roteador: registra o listener do modo ativo (`hashchange` no
+         * modo hash, `popstate` no history) e despacha a rota atual.
+         * Deve ser chamado depois de registrar as rotas.
+         * @returns {FMRoute} A própria instância, para encadeamento.
+         */
         run() {
             this.running = true;
 
@@ -105,16 +178,32 @@
             return this;
         }
 
+        /**
+         * Pausa o tratamento de rotas. Enquanto pausado, mudanças de URL são
+         * ignoradas (nenhum callback dispara). Retome com {@link FMRoute#start}.
+         * @returns {FMRoute} A própria instância, para encadeamento.
+         */
         stop() {
             this.running = false;
             return this;
         }
 
+        /**
+         * Retoma o tratamento de rotas após um {@link FMRoute#stop}.
+         * Não redispara a rota atual; só volta a reagir a mudanças de URL.
+         * @returns {FMRoute} A própria instância, para encadeamento.
+         */
         start() {
             this.running = true;
             return this;
         }
 
+        /**
+         * Navega programaticamente para um caminho. No modo hash atualiza o
+         * fragmento da URL; no modo history usa `pushState` e despacha a rota.
+         * @param {string} path - Caminho de destino (ex.: '/page-1').
+         * @returns {FMRoute} A própria instância, para encadeamento.
+         */
         go(path) {
             const { path: normalizedPath } = this._normalize(path);
 
