@@ -122,8 +122,19 @@ npm run build
 
 ## Demo
 
-Veja [modelo/index.html](modelo/index.html) para um exemplo completo (Bootstrap 5, sem framework).
-No modo `history`, sirva os arquivos por um servidor HTTP (ex.: `python3 -m http.server`).
+Há um demo para cada modo (Bootstrap 5, sem framework):
+
+- **Hash** — [modelo/index.html](modelo/index.html): abra direto no navegador (`file://`).
+- **History** — [modelo/history.html](modelo/history.html): precisa de um servidor com fallback
+  de SPA, pois recarregar `/page-1` exige que o servidor devolva o HTML. Use o dev server incluso:
+
+  ```bash
+  npm run serve
+  # Demo history: http://localhost:8080/
+  # Demo hash:    http://localhost:8080/modelo/index.html
+  ```
+
+O dev server ([server.js](server.js)) é Node puro, sem dependências.
 
 ## Licença
 

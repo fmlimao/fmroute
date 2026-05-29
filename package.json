@@ -5,7 +5,8 @@
   "description": "Roteador front-end simples, sem dependências (hash + History API).",
   "main": "fmroute.js",
   "scripts": {
-    "build": "terser fmroute.js -c -m --comments \"/^!/\" -o fmroute.min.js"
+    "build": "terser fmroute.js -c -m --comments \"/^!/\" -o fmroute.min.js",
+    "serve": "node server.js"
   },
   "keywords": [
     "router",
