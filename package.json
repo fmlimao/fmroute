@@ -1,0 +1,23 @@
+{
+  "name": "fmroute",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Roteador front-end simples, sem dependências (hash + History API).",
+  "main": "fmroute.js",
+  "scripts": {
+    "build": "terser fmroute.js -c -m --comments \"/^!/\" -o fmroute.min.js"
+  },
+  "keywords": [
+    "router",
+    "routing",
+    "spa",
+    "hash",
+    "history",
+    "vanilla"
+  ],
+  "author": "Leandro Macedo <fmlimao@gmail.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "terser": "^5"
+  }
+}

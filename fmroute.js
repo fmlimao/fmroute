@@ -1,209 +1,242 @@
-var FMRoute = (function () {
-    function FMRoute() {
-        this.routes = [];
-        this.previous_route = null;
-        this.current_route = null;
-        this.default_callback = {
-            '404': function (vars, next, route) {
-                console.dir(route + ': 404 NOT FOUND');
-                next();
-            },
-            'before': function (vars, next, route) {
-                next();
-            },
-            'after': function (vars, route) { },
-        };
-        this.block = false;
+/*!
+ * FM Route 2.0
+ * Roteador front-end simples, sem dependências.
+ * Suporta dois modos de navegação: 'hash' (#/rota) e 'history' (URLs limpas).
+ *
+ * @license MIT
+ */
+(function (root, factory) {
+    'use strict';
+
+    if (typeof module === 'object' && module.exports) {
+        // CommonJS / Node
+        module.exports = factory();
+    } else if (typeof define === 'function' && define.amd) {
+        // AMD
+        define([], factory);
+    } else {
+        // Browser global
+        root.FMRoute = factory();
+    }
+})(typeof self !== 'undefined' ? self : this, function () {
+    'use strict';
+
+    // Callback de passagem padrão: apenas segue o fluxo.
+    function passthrough(vars, next) {
+        next();
     }
 
-    FMRoute.prototype = {
-        get: function (path, callback_enter, callback_exit) {
-            callback_enter = callback_enter || function (vars, next) {
-                next();
-            };
-            callback_exit = callback_exit || function (vars, next) {
-                next();
-            };
+    class FMRoute {
 
-            path = this.clearPath(path);
-            path_elements = this.splitPath(path);
-            path = '/' + path;
+        constructor(options = {}) {
+            this.mode = options.mode === 'history' ? 'history' : 'hash';
 
-            var route = {
-                path: path,
-                path_elements: path_elements,
-                callback_enter: callback_enter,
-                callback_exit: callback_exit,
-            };
+            // Base normalizada com barra inicial e sem barra final (ex.: "/app").
+            // Usada apenas no modo history, quando o app mora numa subpasta.
+            const base = this._trimSlashes(options.base || '');
+            this.base = base ? '/' + base : '';
 
-            this.routes.push(route);
-        },
-        run: function () {
-            this.clearPathname();
-            this.startHashListener();
-            this.getCurrentHash();
-        },
-        stop: function () {
-            this.block = true;
-        },
-        start: function () {
-            this.block = false;
-        },
-        clearPathname: function () {
-            var pathname = '/' + window.location.pathname
-                .split('/')
-                .reduce(function (a, c) {
-                    if (c.trim() != '') a.push(c.trim());
-                    return a;
-                }, [])
-                .join('/') + '/';
-            if (window.location.pathname != pathname) window.history.pushState('/', document.title, pathname);
-        },
-        startHashListener: function () {
-            var _ = this;
-            window.addEventListener('hashchange', function () {
-                _.getCurrentHash();
-            }, false);
-        },
-        getCurrentHash: function () {
-            if (!this.block) {
-                var current_hash = window.location.hash;
-                if (current_hash == '') {
-                    window.location.hash = '/';
-                } else {
-                    this.changePreviousCurrentRoute(current_hash);
-                    this.executeRoutes();
-                }
-            }
-        },
-        executeRoutes: function () {
-            var _ = this;
-            var before_callback = this.default_callback['before'];
-            var after_callback = this.default_callback['after'];
-            var exit_callback = this.getExitCallback();
-            var enter_callback = this.getEnterCallback();
+            this.routes = [];
+            this.previousRoute = null;
+            this.currentRoute = null;
+            this.running = false;
 
-            before_callback(enter_callback[1], function () {
-                exit_callback[0](exit_callback[1], function () {
-                    enter_callback[0](enter_callback[1], function () {
-                        after_callback(enter_callback[1], _.current_route);
-                    }, _.current_route);
-                });
-            }, _.current_route);
-        },
-        clearPath: function (path) {
-            path = path.trim();
-            path = path.replace('#', '');
-            // path = path.toLowerCase();
-
-            if (path.substring(0, 1) == '/') {
-                path = path.substring(1);
-            }
-
-            if (path.slice(-1) == '/') {
-                path = path.slice(0, -1);
-            }
-
-            return path;
-        },
-        splitPath: function (path) {
-            path = path.split('/');
-            return path;
-        },
-        changePreviousCurrentRoute: function (current_path) {
-            this.previous_route = this.current_route;
-            this.current_route = current_path;
-        },
-        getExitCallback: function () {
-            var callback = function (vars, next) {
-                next();
-            };
-
-            var vars = {};
-
-            if (this.previous_route) {
-                var path_exists = this.checkPathExists(this.previous_route);
-
-                if (path_exists) {
-                    callback = path_exists[0].callback_exit;
-                    vars = path_exists[1];
-                }
-            }
-
-            return [
-                callback,
-                vars,
-            ];
-        },
-        getEnterCallback: function () {
-            var _ = this;
-            var callback = this.default_callback['404'];
-            var vars = {};
-
-            if (this.current_route) {
-                var path_exists = this.checkPathExists(this.current_route);
-
-                if (path_exists) {
-                    callback = path_exists[0].callback_enter;
-                    vars = path_exists[1];
-                }
-            }
-
-            return [
-                callback,
-                vars,
-            ];
-        },
-        checkPathExists: function (current_hash) {
-            var path = this.clearPath(current_hash);
-            path = this.splitPath(path);
-
-            var exists = null;
-            var routes = this.routes;
-            for (var i in routes) {
-                var route = routes[i];
-                if (route.path_elements.length == path.length) {
-                    var equal = true;
-                    var vars = {};
-                    for (var j in route.path_elements) {
-                        var route_path_item = route.path_elements[j];
-                        var is_path_var = this.isPathVar(route_path_item);
-                        if (is_path_var) {
-                            vars[is_path_var] = path[j];
-                        } else {
-                            if (route_path_item != path[j]) {
-                                equal = false;
-                            }
-                        }
+            this.defaultCallbacks = {
+                '404': function (vars, next, route) {
+                    if (typeof console !== 'undefined') {
+                        console.warn('FMRoute: 404 NOT FOUND -> ' + route);
                     }
+                    next();
+                },
+                'before': function (vars, next, route) {
+                    next();
+                },
+                'after': function (vars, route) { }
+            };
 
-                    if (equal) {
-                        exists = [route, vars];
+            // Handler com referência estável, para poder remover o listener depois.
+            this._listener = () => this._onLocationChange();
+        }
+
+        // ---- API pública --------------------------------------------------
+
+        get(path, callbackEnter, callbackExit) {
+            const { path: normalizedPath, segments } = this._normalize(path);
+
+            this.routes.push({
+                path: normalizedPath,
+                segments,
+                callbackEnter: callbackEnter || passthrough,
+                callbackExit: callbackExit || passthrough
+            });
+
+            return this;
+        }
+
+        error(code, callback) {
+            this.defaultCallbacks[code] = callback;
+            return this;
+        }
+
+        before(callback) {
+            this.defaultCallbacks['before'] = callback;
+            return this;
+        }
+
+        after(callback) {
+            this.defaultCallbacks['after'] = callback;
+            return this;
+        }
+
+        run() {
+            this.running = true;
+
+            const event = this.mode === 'history' ? 'popstate' : 'hashchange';
+            window.addEventListener(event, this._listener, false);
+
+            // No modo hash, garante um hash inicial; o hashchange disparado
+            // por essa atribuição cuida do dispatch.
+            if (this.mode === 'hash' && window.location.hash === '') {
+                window.location.hash = '/';
+                return this;
+            }
+
+            this._onLocationChange();
+            return this;
+        }
+
+        stop() {
+            this.running = false;
+            return this;
+        }
+
+        start() {
+            this.running = true;
+            return this;
+        }
+
+        go(path) {
+            const { path: normalizedPath } = this._normalize(path);
+
+            if (this.mode === 'history') {
+                const url = (this.base + '/' + normalizedPath).replace(/\/+/g, '/');
+                window.history.pushState(null, document.title, url);
+                this._onLocationChange();
+            } else {
+                window.location.hash = '/' + normalizedPath;
+            }
+
+            return this;
+        }
+
+        // ---- Internos -----------------------------------------------------
+
+        _trimSlashes(value) {
+            return String(value).trim().replace(/^\/+/, '').replace(/\/+$/, '');
+        }
+
+        // Normaliza um caminho cru em { path, segments }.
+        _normalize(path) {
+            const clean = this._trimSlashes(String(path).trim().replace('#', ''));
+
+            return {
+                path: clean,
+                segments: clean === '' ? [''] : clean.split('/')
+            };
+        }
+
+        // Lê o caminho atual conforme o modo, já sem o prefixo base.
+        _currentLocation() {
+            let raw;
+
+            if (this.mode === 'history') {
+                raw = window.location.pathname;
+                if (this.base && raw.indexOf(this.base) === 0) {
+                    raw = raw.slice(this.base.length);
+                }
+            } else {
+                raw = window.location.hash;
+            }
+
+            return this._normalize(raw);
+        }
+
+        // Procura a rota que casa com um caminho normalizado.
+        // Retorna { route, vars } ou null.
+        _match(location) {
+            const segments = location.segments;
+
+            for (const route of this.routes) {
+                if (route.segments.length !== segments.length) {
+                    continue;
+                }
+
+                const vars = {};
+                let matched = true;
+
+                for (let j = 0; j < route.segments.length; j++) {
+                    const item = route.segments[j];
+                    const varName = this._paramName(item);
+
+                    if (varName) {
+                        vars[varName] = decodeURIComponent(segments[j]);
+                    } else if (item !== segments[j]) {
+                        matched = false;
                         break;
                     }
                 }
-            };
-            return exists;
-        },
-        isPathVar: function (item) {
-            if (item.substring(0, 1) == ':') {
-                return item.substring(1);
+
+                if (matched) {
+                    return { route, vars };
+                }
             }
-            return false;
-        },
-        error: function (code, callback) {
-            this.default_callback[code] = callback;
-        },
-        before: function (callback) {
-            this.default_callback['before'] = callback;
-        },
-        after: function (callback) {
-            this.default_callback['after'] = callback;
-        },
-        go: function (route) {
-            window.location.hash = route;
-        },
-    };
+
+            return null;
+        }
+
+        // Nome do parâmetro se o segmento for ":nome", senão null.
+        _paramName(segment) {
+            return segment.charAt(0) === ':' ? segment.slice(1) : null;
+        }
+
+        _onLocationChange() {
+            if (!this.running) {
+                return;
+            }
+
+            const location = this._currentLocation();
+
+            this.previousRoute = this.currentRoute;
+            this.currentRoute = location.path;
+
+            this._dispatch(location);
+        }
+
+        // Encadeia: before -> exit(rota anterior) -> enter(rota atual) -> after.
+        _dispatch(location) {
+            const before = this.defaultCallbacks['before'];
+            const after = this.defaultCallbacks['after'];
+
+            const enter = this._match(location);
+            const exit = this.previousRoute !== null
+                ? this._match(this._normalize(this.previousRoute))
+                : null;
+
+            const enterVars = enter ? enter.vars : {};
+            const enterCallback = enter ? enter.route.callbackEnter : this.defaultCallbacks['404'];
+
+            const exitVars = exit ? exit.vars : {};
+            const exitCallback = exit ? exit.route.callbackExit : passthrough;
+
+            before(enterVars, () => {
+                exitCallback(exitVars, () => {
+                    enterCallback(enterVars, () => {
+                        after(enterVars, this.currentRoute);
+                    }, this.currentRoute);
+                }, this.previousRoute);
+            }, this.currentRoute);
+        }
+    }
 
     return FMRoute;
-})();
+});
