@@ -95,7 +95,8 @@
         'after': function (vars, route) { }
       };
 
-      // Handler com referência estável, para poder remover o listener depois.
+      // Handler com referência estável: necessário para que destroy()
+      // consiga remover exatamente este listener depois.
       this._listener = () => this._onLocationChange();
     }
 
@@ -215,6 +216,19 @@
         window.location.hash = '/' + normalizedPath;
       }
 
+      return this;
+    }
+
+    /**
+     * Encerra o roteador: remove o listener registrado por {@link FMRoute#run}
+     * e para o tratamento de rotas. Use ao descartar a instância (ex.: ao
+     * desmontar um componente) para evitar vazamento de listener.
+     * @returns {FMRoute} A própria instância.
+     */
+    destroy() {
+      const event = this.mode === 'history' ? 'popstate' : 'hashchange';
+      window.removeEventListener(event, this._listener, false);
+      this.running = false;
       return this;
     }
 

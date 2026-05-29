@@ -10,17 +10,17 @@ A versão 2.0 é uma reescrita madura: escrita como `class` ES6, distribuída em
 
 ## Instalação
 
-Importe o arquivo na sua página:
+Baixe o `fmroute.min.js` e importe na sua página:
 
 ```html
 <script src="./fmroute.min.js"></script>
 ```
 
-Ou via módulo:
+Ou consuma como módulo (apontando para o arquivo — o pacote não é publicado no npm):
 
 ```javascript
-const FMRoute = require('fmroute');     // CommonJS
-import FMRoute from 'fmroute';          // ESM (com bundler)
+const FMRoute = require('./fmroute.js');   // CommonJS
+import FMRoute from './fmroute.js';        // ESM (com bundler)
 ```
 
 ## Uso
@@ -29,17 +29,17 @@ import FMRoute from 'fmroute';          // ESM (com bundler)
 var route = new FMRoute();              // modo 'hash' (padrão)
 
 route.get('/', function (vars, next) {
-    // insira o seu código aqui
-    next();
+  // insira o seu código aqui
+  next();
 });
 
 route.get('/page-1', function (vars, next) {
-    next();
+  next();
 });
 
 route.get('/page-2/:id', function (vars, next) {
-    console.log(vars.id);               // parâmetro nomeado
-    next();
+  console.log(vars.id);                 // parâmetro nomeado
+  next();
 });
 
 route.run();                            // inicia o roteador
@@ -52,7 +52,7 @@ route.run();                            // inicia o roteador
 new FMRoute({ mode: 'hash' });
 
 // History API — URLs limpas como /page-1
-// (requer servidor que entregue o index.html nas rotas)
+// (requer servidor que entregue o HTML em todas as rotas)
 new FMRoute({ mode: 'history' });
 
 // Com base, quando o app vive numa subpasta
@@ -67,7 +67,7 @@ Defina uma ação para quando uma rota não for encontrada:
 
 ```javascript
 route.error('404', function (vars, next) {
-    next();
+  next();
 });
 ```
 
@@ -75,11 +75,11 @@ Hooks executados **antes** e **depois** de cada rota:
 
 ```javascript
 route.before(function (vars, next, route) {
-    next();
+  next();
 });
 
 route.after(function (vars, route) {
-    // sem next(): roda ao final do fluxo
+  // sem next(): roda ao final do fluxo
 });
 ```
 
@@ -87,8 +87,8 @@ Callback de **saída** de uma rota (terceiro argumento do `get`), útil para lim
 
 ```javascript
 route.get('/editor',
-    function (vars, next) { /* enter */ next(); },
-    function (vars, next) { /* exit  */ next(); }
+  function (vars, next) { /* enter */ next(); },
+  function (vars, next) { /* exit  */ next(); }
 );
 ```
 
@@ -98,17 +98,18 @@ Navegação programática e controle do roteador:
 route.go('/page-1');   // navega via código
 route.stop();          // pausa o tratamento de rotas
 route.start();         // retoma
+route.destroy();       // remove o listener e encerra (evita leak ao descartar)
 ```
 
 Todos os métodos retornam a própria instância, então dá pra encadear:
 
 ```javascript
 new FMRoute()
-    .before(fn)
-    .get('/', home)
-    .get('/sobre', sobre)
-    .error('404', naoEncontrado)
-    .run();
+  .before(fn)
+  .get('/', home)
+  .get('/sobre', sobre)
+  .error('404', naoEncontrado)
+  .run();
 ```
 
 ## Build
@@ -136,6 +137,10 @@ Há um demo para cada modo (Bootstrap 5, sem framework):
 
 O dev server ([server.js](server.js)) é Node puro, sem dependências.
 
+## Changelog
+
+Veja [CHANGELOG.md](CHANGELOG.md) para o histórico de versões.
+
 ## Licença
 
-MIT
+[MIT](LICENSE) © Leandro Macedo
