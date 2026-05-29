@@ -1,186 +1,345 @@
-var FMRoute = (function () {
-    function FMRoute() {
-        this.routes = [];
-        this.previous_route = null;
-        this.current_route = null;
-        this.default_callback = {
-            '404': function (vars, next, route) {
-                console.dir(route + ': 404 NOT FOUND');
-                next();
-            },
-            'before': function (vars, next, route) {
-                next();
-            },
-            'after': function (vars, route) {},
-        };
+/*!
+ * FM Route 2.0
+ * Roteador front-end simples, sem dependências.
+ * Suporta dois modos de navegação: 'hash' (#/rota) e 'history' (URLs limpas).
+ *
+ * @license MIT
+ */
+(function (root, factory) {
+  'use strict';
+
+  if (typeof module === 'object' && module.exports) {
+    // CommonJS / Node
+    module.exports = factory();
+  } else if (typeof define === 'function' && define.amd) {
+    // AMD
+    define([], factory);
+  } else {
+    // Browser global
+    root.FMRoute = factory();
+  }
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  /**
+   * Callback executado ao entrar/sair de uma rota, ou nos hooks before/404.
+   * Deve chamar `next()` para a cadeia (before -> exit -> enter -> after) seguir.
+   * @callback RouteCallback
+   * @param {Object<string, string>} vars - Parâmetros nomeados extraídos da rota
+   *   (ex.: a rota '/post/:id' acessada como '/post/42' fornece `{ id: '42' }`).
+   * @param {function} next - Avança para a próxima etapa do fluxo.
+   * @param {?string} route - Caminho da rota envolvida.
+   */
+
+  /**
+   * Hook executado ao final do fluxo, depois da rota de entrada. Não recebe
+   * `next()` por ser o último passo.
+   * @callback AfterCallback
+   * @param {Object<string, string>} vars - Parâmetros da rota atual.
+   * @param {?string} route - Caminho da rota atual.
+   */
+
+  /**
+   * Callback de passagem padrão: apenas segue o fluxo chamando next().
+   * Usado quando uma rota não define callback de entrada/saída.
+   * @type {RouteCallback}
+   */
+  function passthrough(vars, next) {
+    next();
+  }
+
+  /**
+   * Roteador front-end sem dependências.
+   *
+   * @example
+   * const route = new FMRoute();          // modo 'hash' (padrão)
+   * route
+   *     .get('/', (vars, next) => next())
+   *     .get('/post/:id', (vars, next) => { console.log(vars.id); next(); })
+   *     .error('404', (vars, next) => next())
+   *     .run();
+   */
+  class FMRoute {
+
+    /**
+     * @param {object} [options] - Opções de configuração.
+     * @param {'hash'|'history'} [options.mode='hash'] - Estratégia de navegação.
+     *   'hash' usa o fragmento da URL (#/rota); 'history' usa a History API
+     *   (URLs limpas, /rota — exige fallback de SPA no servidor).
+     * @param {string} [options.base=''] - Prefixo de caminho quando o app vive
+     *   numa subpasta (ex.: '/app'). Relevante apenas no modo 'history'.
+     */
+    constructor(options = {}) {
+      this.mode = options.mode === 'history' ? 'history' : 'hash';
+
+      // Base normalizada com barra inicial e sem barra final (ex.: "/app").
+      // Usada apenas no modo history, quando o app mora numa subpasta.
+      const base = this._trimSlashes(options.base || '');
+      this.base = base ? '/' + base : '';
+
+      this.routes = [];
+      this.previousRoute = null;
+      this.currentRoute = null;
+      this.running = false;
+
+      this.defaultCallbacks = {
+        '404': function (vars, next, route) {
+          if (typeof console !== 'undefined') {
+            console.warn('FMRoute: 404 NOT FOUND -> ' + route);
+          }
+          next();
+        },
+        'before': function (vars, next, route) {
+          next();
+        },
+        'after': function (vars, route) { }
+      };
+
+      // Handler com referência estável: necessário para que destroy()
+      // consiga remover exatamente este listener depois.
+      this._listener = () => this._onLocationChange();
     }
 
-    FMRoute.prototype = {
-        get: function (path, callback_enter, callback_exit) {
-            callback_enter = callback_enter || function (vars, next) {
-                next();
-            };
-            callback_exit = callback_exit || function (vars, next) {
-                next();
-            };
+    // ---- API pública --------------------------------------------------
 
-            path = this.clearPath(path);
-            path_elements = this.splitPath(path);
-            path = '/' + path;
+    /**
+     * Registra uma rota e seus callbacks.
+     * @param {string} path - Caminho da rota. Aceita parâmetros nomeados
+     *   com `:` (ex.: '/post/:id'), que viram propriedades de `vars`.
+     * @param {RouteCallback} [callbackEnter] - Executado ao entrar na rota.
+     * @param {RouteCallback} [callbackExit] - Executado ao sair da rota
+     *   (ao navegar dela para outra). Opcional.
+     * @returns {FMRoute} A própria instância, para encadeamento.
+     */
+    get(path, callbackEnter, callbackExit) {
+      const { path: normalizedPath, segments } = this._normalize(path);
 
-            var route = {
-                path: path,
-                path_elements: path_elements,
-                callback_enter: callback_enter,
-                callback_exit: callback_exit,
-            };
+      this.routes.push({
+        path: normalizedPath,
+        segments,
+        callbackEnter: callbackEnter || passthrough,
+        callbackExit: callbackExit || passthrough
+      });
 
-            this.routes.push(route);
-        },
-        run: function () {
-            this.startHashListener();
-            this.getCurrentHash();
-        },
-        startHashListener: function () {
-            var _ = this;
-            window.addEventListener('hashchange', function () {
-                _.getCurrentHash();
-            }, false);
-        },
-        getCurrentHash: function () {
-            var current_hash = window.location.hash;
-            if (current_hash == '') {
-                window.location.hash = '/';
-            } else {
-                this.changePreviousCurrentRoute(current_hash);
-                this.executeRoutes();
-            }
-        },
-        executeRoutes: function () {
-            var _ = this;
-            var before_callback = this.default_callback['before'];
-            var after_callback = this.default_callback['after'];
-            var exit_callback = this.getExitCallback();
-            var enter_callback = this.getEnterCallback();
+      return this;
+    }
 
-            before_callback(enter_callback[1], function () {
-                exit_callback[0](exit_callback[1], function () {
-                    enter_callback[0](enter_callback[1], function () {
-                        after_callback(enter_callback[1], _.current_route);
-                    }, _.current_route);
-                });
-            }, _.current_route);
-        },
-        clearPath: function (path) {
-            path = path.trim();
-            path = path.replace('#', '');
-            path = path.toLowerCase();
+    /**
+     * Define o callback de um código de erro. Hoje o roteador dispara '404'
+     * quando nenhuma rota casa com o caminho atual.
+     * @param {string} code - Código do erro (ex.: '404').
+     * @param {RouteCallback} callback - Executado quando o erro ocorre.
+     * @returns {FMRoute} A própria instância, para encadeamento.
+     */
+    error(code, callback) {
+      this.defaultCallbacks[code] = callback;
+      return this;
+    }
 
-            if (path.substring(0, 1) == '/') {
-                path = path.substring(1);
-            }
+    /**
+     * Define o hook executado ANTES de cada rota (em toda navegação).
+     * @param {RouteCallback} callback - Executado no início do fluxo.
+     * @returns {FMRoute} A própria instância, para encadeamento.
+     */
+    before(callback) {
+      this.defaultCallbacks['before'] = callback;
+      return this;
+    }
 
-            if (path.slice(-1) == '/') {
-                path = path.slice(0, -1);
-            }
+    /**
+     * Define o hook executado DEPOIS de cada rota (ao final do fluxo).
+     * @param {AfterCallback} callback - Executado no fim do fluxo (sem `next`).
+     * @returns {FMRoute} A própria instância, para encadeamento.
+     */
+    after(callback) {
+      this.defaultCallbacks['after'] = callback;
+      return this;
+    }
 
-            return path;
-        },
-        splitPath: function (path) {
-            path = path.split('/');
-            return path;
-        },
-        changePreviousCurrentRoute: function (current_path) {
-            this.previous_route = this.current_route;
-            this.current_route = current_path;
-        },
-        getExitCallback: function () {
-            var callback = function (vars, next) {
-                next();
-            };
+    /**
+     * Inicia o roteador: registra o listener do modo ativo (`hashchange` no
+     * modo hash, `popstate` no history) e despacha a rota atual.
+     * Deve ser chamado depois de registrar as rotas.
+     * @returns {FMRoute} A própria instância, para encadeamento.
+     */
+    run() {
+      this.running = true;
 
-            var vars = {};
+      const event = this.mode === 'history' ? 'popstate' : 'hashchange';
+      window.addEventListener(event, this._listener, false);
 
-            if (this.previous_route) {
-                var path_exists = this.checkPathExists(this.previous_route);
+      // No modo hash, garante um hash inicial; o hashchange disparado
+      // por essa atribuição cuida do dispatch.
+      if (this.mode === 'hash' && window.location.hash === '') {
+        window.location.hash = '/';
+        return this;
+      }
 
-                if (path_exists) {
-                    callback = path_exists[0].callback_exit;
-                    vars = path_exists[1];
-                }
-            }
+      this._onLocationChange();
+      return this;
+    }
 
-            return [
-                callback,
-                vars,
-            ];
-        },
-        getEnterCallback: function () {
-            var _ = this;
-            var callback = this.default_callback['404'];
-            var vars = {};
+    /**
+     * Pausa o tratamento de rotas. Enquanto pausado, mudanças de URL são
+     * ignoradas (nenhum callback dispara). Retome com {@link FMRoute#start}.
+     * @returns {FMRoute} A própria instância, para encadeamento.
+     */
+    stop() {
+      this.running = false;
+      return this;
+    }
 
-            if (this.current_route) {
-                var path_exists = this.checkPathExists(this.current_route);
+    /**
+     * Retoma o tratamento de rotas após um {@link FMRoute#stop}.
+     * Não redispara a rota atual; só volta a reagir a mudanças de URL.
+     * @returns {FMRoute} A própria instância, para encadeamento.
+     */
+    start() {
+      this.running = true;
+      return this;
+    }
 
-                if (path_exists) {
-                    callback = path_exists[0].callback_enter;
-                    vars = path_exists[1];
-                }
-            }
+    /**
+     * Navega programaticamente para um caminho. No modo hash atualiza o
+     * fragmento da URL; no modo history usa `pushState` e despacha a rota.
+     * @param {string} path - Caminho de destino (ex.: '/page-1').
+     * @returns {FMRoute} A própria instância, para encadeamento.
+     */
+    go(path) {
+      const { path: normalizedPath } = this._normalize(path);
 
-            return [
-                callback,
-                vars,
-            ];
-        },
-        checkPathExists: function (current_hash) {
-            var path = this.clearPath(current_hash);
-            path = this.splitPath(path);
+      if (this.mode === 'history') {
+        const url = (this.base + '/' + normalizedPath).replace(/\/+/g, '/');
+        window.history.pushState(null, document.title, url);
+        this._onLocationChange();
+      } else {
+        window.location.hash = '/' + normalizedPath;
+      }
 
-            var exists = null;
-            var routes = this.routes;
-            for (var i in routes) {
-                var route = routes[i];
-                if (route.path_elements.length == path.length) {
-                    var equal = true;
-                    var vars = {};
-                    for (var j in route.path_elements) {
-                        var route_path_item = route.path_elements[j];
-                        var is_path_var = this.isPathVar(route_path_item);
-                        if (is_path_var) {
-                            vars[is_path_var] = path[j];
-                        } else {
-                            if (route_path_item != path[j]) {
-                                equal = false;
-                            }
-                        }
-                    }
+      return this;
+    }
 
-                    if (equal) {
-                        exists = [route, vars];
-                        break;
-                    }
-                }
-            };
-            return exists;
-        },
-        isPathVar: function (item) {
-            if (item.substring(0, 1) == ':') {
-                return item.substring(1);
-            }
-            return false;
-        },
-        error: function (code, callback) {
-            this.default_callback[code] = callback;
-        },
-        before: function (callback) {
-            this.default_callback['before'] = callback;
-        },
-        after: function (callback) {
-            this.default_callback['after'] = callback;
-        },
-    };
+    /**
+     * Encerra o roteador: remove o listener registrado por {@link FMRoute#run}
+     * e para o tratamento de rotas. Use ao descartar a instância (ex.: ao
+     * desmontar um componente) para evitar vazamento de listener.
+     * @returns {FMRoute} A própria instância.
+     */
+    destroy() {
+      const event = this.mode === 'history' ? 'popstate' : 'hashchange';
+      window.removeEventListener(event, this._listener, false);
+      this.running = false;
+      return this;
+    }
 
-    return FMRoute;
-})();
+    // ---- Internos -----------------------------------------------------
+
+    _trimSlashes(value) {
+      return String(value).trim().replace(/^\/+/, '').replace(/\/+$/, '');
+    }
+
+    // Normaliza um caminho cru em { path, segments }.
+    _normalize(path) {
+      const clean = this._trimSlashes(String(path).trim().replace('#', ''));
+
+      return {
+        path: clean,
+        segments: clean === '' ? [''] : clean.split('/')
+      };
+    }
+
+    // Lê o caminho atual conforme o modo, já sem o prefixo base.
+    _currentLocation() {
+      let raw;
+
+      if (this.mode === 'history') {
+        raw = window.location.pathname;
+        if (this.base && raw.indexOf(this.base) === 0) {
+          raw = raw.slice(this.base.length);
+        }
+      } else {
+        raw = window.location.hash;
+      }
+
+      return this._normalize(raw);
+    }
+
+    // Procura a rota que casa com um caminho normalizado.
+    // Retorna { route, vars } ou null.
+    _match(location) {
+      const segments = location.segments;
+
+      for (const route of this.routes) {
+        if (route.segments.length !== segments.length) {
+          continue;
+        }
+
+        const vars = {};
+        let matched = true;
+
+        for (let j = 0; j < route.segments.length; j++) {
+          const item = route.segments[j];
+          const varName = this._paramName(item);
+
+          if (varName) {
+            vars[varName] = decodeURIComponent(segments[j]);
+          } else if (item !== segments[j]) {
+            matched = false;
+            break;
+          }
+        }
+
+        if (matched) {
+          return { route, vars };
+        }
+      }
+
+      return null;
+    }
+
+    // Nome do parâmetro se o segmento for ":nome", senão null.
+    _paramName(segment) {
+      return segment.charAt(0) === ':' ? segment.slice(1) : null;
+    }
+
+    _onLocationChange() {
+      if (!this.running) {
+        return;
+      }
+
+      const location = this._currentLocation();
+
+      this.previousRoute = this.currentRoute;
+      this.currentRoute = location.path;
+
+      this._dispatch(location);
+    }
+
+    // Encadeia: before -> exit(rota anterior) -> enter(rota atual) -> after.
+    _dispatch(location) {
+      const before = this.defaultCallbacks['before'];
+      const after = this.defaultCallbacks['after'];
+
+      const enter = this._match(location);
+      const exit = this.previousRoute !== null
+        ? this._match(this._normalize(this.previousRoute))
+        : null;
+
+      const enterVars = enter ? enter.vars : {};
+      const enterCallback = enter ? enter.route.callbackEnter : this.defaultCallbacks['404'];
+
+      const exitVars = exit ? exit.vars : {};
+      const exitCallback = exit ? exit.route.callbackExit : passthrough;
+
+      before(enterVars, () => {
+        exitCallback(exitVars, () => {
+          enterCallback(enterVars, () => {
+            after(enterVars, this.currentRoute);
+          }, this.currentRoute);
+        }, this.previousRoute);
+      }, this.currentRoute);
+    }
+  }
+
+  return FMRoute;
+});
