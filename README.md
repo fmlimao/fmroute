@@ -141,6 +141,11 @@ O dev server ([server.js](server.js)) é Node puro, sem dependências.
 
 Veja [CHANGELOG.md](CHANGELOG.md) para o histórico de versões.
 
+## Contribuidores
+
+- Leandro Macedo ([@fmlimao](https://github.com/fmlimao)) — autor e mantenedor
+- Forgehouse Tech — colaboração
+
 ## Licença
 
 [MIT](LICENSE) © Leandro Macedo
